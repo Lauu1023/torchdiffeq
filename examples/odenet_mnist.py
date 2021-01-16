@@ -9,6 +9,10 @@ from torch.utils.data import DataLoader
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
+from plotcm import plot_confusion_matrix
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--network', type=str, choices=['resnet', 'odenet'], default='odenet')
 parser.add_argument('--tol', type=float, default=1e-3)
@@ -192,7 +196,7 @@ def get_mnist_loaders(data_aug=False, batch_size=128, test_batch_size=1000, perc
         datasets.MNIST(root='.data/mnist', train=False, download=True, transform=transform_test),
         batch_size=test_batch_size, shuffle=False, num_workers=2, drop_last=True
     )
-
+    print('Train_loader: {0:7d}, test_loader: {0:7d}, train_eval_loader: {0:7d}'.format(len(train_loader), len(test_loader), len(train_eval_loader)))
     return train_loader, test_loader, train_eval_loader
 
 
@@ -228,6 +232,9 @@ def one_hot(x, K):
 
 def accuracy(model, dataset_loader):
     total_correct = 0
+    targ = torch.tensor([len(dataset_loader)])
+    pred = torch.tensor([len(dataset_loader)])
+    index = 0
     for x, y in dataset_loader:
         x = x.to(device)
         y = one_hot(np.array(y.numpy()), 10)
@@ -235,6 +242,10 @@ def accuracy(model, dataset_loader):
         target_class = np.argmax(y, axis=1)
         predicted_class = np.argmax(model(x).cpu().detach().numpy(), axis=1)
         total_correct += np.sum(predicted_class == target_class)
+        index+=1
+    cm = confusion_matrix(target_class, predicted_class)
+    plt.figure(figsize=(10, 10))
+    plot_confusion_matrix(cm,dataset_loader.dataset.classes)
     return total_correct / len(dataset_loader.dataset)
 
 
@@ -330,9 +341,8 @@ if __name__ == '__main__':
     f_nfe_meter = RunningAverageMeter()
     b_nfe_meter = RunningAverageMeter()
     end = time.time()
-
+    print('Iteraciones: {:06}'.format(args.nepochs*batches_per_epoch))
     for itr in range(args.nepochs * batches_per_epoch):
-
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr_fn(itr)
 
